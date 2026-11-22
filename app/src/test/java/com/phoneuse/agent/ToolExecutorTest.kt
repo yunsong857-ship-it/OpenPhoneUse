@@ -1038,7 +1038,7 @@ class ToolExecutorTest {
         assertTrue(ok.output, ok.output.startsWith("OK"))
         assertNull(store.get(saved.id))
 
-        // A tainted history asks too; a clean run of the user's own words does not.
+        // A clean run also asks before deleting saved user data.
         val again = store.add(com.phoneuse.memory.NewMemory("커피는 라떼", com.phoneuse.memory.MemoryKind.PERSON, com.phoneuse.memory.Confidence.SURE))
         val gate2 = FakeUserGate().apply { confirmResult = false }
         ToolExecutor(FakeDeviceController(listOf(base)), gate2, memory = MemoryAccess(store, null), historyTainted = true)
@@ -1048,7 +1048,7 @@ class ToolExecutorTest {
         val gate3 = FakeUserGate()
         ToolExecutor(FakeDeviceController(listOf(base)), gate3, memory = MemoryAccess(store, null))
             .execute(call("forget", """{"id":${again.id}}"""), null)
-        assertTrue(gate3.confirms.isEmpty())
+        assertEquals(RiskCategory.DELETE, gate3.confirms.single().first)
         assertNull(store.get(again.id))
     }
 
