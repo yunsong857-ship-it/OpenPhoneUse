@@ -8,6 +8,10 @@ import com.phoneuse.screen.ScreenSnapshot
 import com.phoneuse.screen.TreeCompressor
 import com.phoneuse.screen.UiNode
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -122,6 +126,27 @@ class ToolExecutorTest {
         val card = ToolExecutor(FakeDeviceController(listOf(screen)), cardGate, trustUserAuthorized = false, confirmSend = false)
         assertEquals("CANCELLED by user", card.execute(call("tap", """{"index":1}"""), screenOf(screen)).output)
         assertEquals(RiskCategory.SEND, cardGate.confirms.single().first)
+    }
+
+    @Test fun cancellingBatchStopsBeforeTheNextQueuedAction() = runTest {
+        val screen = snap("A", "B")
+        val dev = FakeDeviceController(listOf(screen))
+        val child = Job(currentCoroutineContext()[Job])
+        dev.afterTap = { child.cancel() }
+        val ex = ToolExecutor(dev, FakeUserGate())
+
+        try {
+            withContext(child) {
+                ex.execute(
+                    call("batch", """{"actions":[{"tool":"tap","args":{"index":1}},{"tool":"tap","args":{"index":2}}]}"""),
+                    screenOf(screen),
+                )
+            }
+        } catch (_: CancellationException) {
+            // Expected: the first action cancels the child run; the second must never execute.
+        }
+
+        assertEquals(1, dev.calls.count { it.startsWith("tap(") })
     }
 
     @Test fun textOnlySettingKeepsScreenshotsOut() = runTest {
