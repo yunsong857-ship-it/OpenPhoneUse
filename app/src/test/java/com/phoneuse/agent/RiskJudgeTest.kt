@@ -38,7 +38,7 @@ class RiskJudgeTest {
 
     @Test fun weakKeywordIsClearedByTheJudge() {
         assertNull(RiskCombine.combine(weakMoney, ai(null)))
-        assertNull(RiskCombine.combine(RiskMatch(RiskCategory.SEND, false), ai(RiskCategory.CHANGE)))
+        assertEquals(RiskCategory.SEND, RiskCombine.combine(RiskMatch(RiskCategory.SEND, false), ai(RiskCategory.CHANGE)))
         assertEquals(RiskCategory.MONEY, RiskCombine.combine(weakMoney, ai(RiskCategory.SEND)))
         assertEquals(RiskCategory.SECURITY, RiskCombine.combine(RiskMatch(RiskCategory.SEND, false), ai(RiskCategory.SECURITY)))
     }
@@ -46,8 +46,8 @@ class RiskJudgeTest {
     @Test fun judgeAddsRiskWhereTheKeywordsSawNone() {
         assertEquals(RiskCategory.MONEY, RiskCombine.combine(null, ai(RiskCategory.MONEY)))
         assertEquals(RiskCategory.SEND, RiskCombine.combine(null, ai(RiskCategory.SEND)))
-        // CHANGE alone asks nothing: an ordinary toggle the user asked for.
-        assertNull(RiskCombine.combine(null, ai(RiskCategory.CHANGE)))
+        // A declared settings change requires confirmation even without a keyword hit.
+        assertEquals(RiskCategory.CHANGE, RiskCombine.combine(null, ai(RiskCategory.CHANGE)))
         assertNull(RiskCombine.combine(null, ai(null)))
     }
 
@@ -221,11 +221,11 @@ class RiskJudgeTest {
         r2.gate.confirmResult = false
         assertEquals("CANCELLED by user", r2.ex.execute(call("tap", """{"index":1,"risk":"send","effect":"메시지 전송"}"""), screenOf(icon)).output)
         assertEquals(RiskCategory.SEND, r2.gate.confirms.single().first)
-        // On a fresh run (no third-party text read yet) user_authorized still skips it.
+        // user_authorized records intent but cannot bypass final confirmation.
         val r3 = rig(icon)
         r3.gate.confirmResult = false
-        assertTrue(r3.ex.execute(call("tap", """{"index":1,"risk":"send","user_authorized":true}"""), screenOf(icon)).output.startsWith("OK"))
-        assertTrue(r3.gate.confirms.isEmpty())
+        assertEquals("CANCELLED by user", r3.ex.execute(call("tap", """{"index":1,"risk":"send","user_authorized":true}"""), screenOf(icon)).output)
+        assertEquals(RiskCategory.SEND, r3.gate.confirms.single().first)
     }
 
     @Test fun settingOffIsTheKeywordsAlone() = runTest {
@@ -272,16 +272,16 @@ class RiskJudgeTest {
     private suspend fun Pair<Rig, CompressedScreen>.tap(fromHelper: Boolean = false): String =
         first.ex.execute(call("tap", first.tapArgs), second, fromHelper = fromHelper).output
 
-    @Test fun requestedSingleRecoverableDeleteTapsWithoutACard() = runTest {
+    @Test fun requestedSingleRecoverableDeleteStillRequiresConfirmation() = runTest {
         val r = deleteRig()
-        assertTrue(r.tap().startsWith("OK"))
-        assertTrue(r.first.gate.confirms.isEmpty())
-        assertTrue(r.first.dev.calls.any { it.startsWith("tap") })
-        // Other verbs and languages count too.
+        assertEquals("CANCELLED by user", r.tap())
+        assertEquals(RiskCategory.DELETE, r.first.gate.confirms.single().first)
+        assertTrue(r.first.dev.calls.none { it.startsWith("tap") })
+        // Explicitly requested single-item deletes still require a separate confirmation.
         for (said in listOf("알람 중에 6시 15분 거 지워줘", "remove 운동하기 from my todo list", "운동하기 없애줘", "운동하기 빼 줘", "運動を削除して", "Delete the 7am alarm")) {
             val e = deleteRig(said = said)
-            assertTrue(said, e.tap().startsWith("OK"))
-            assertTrue(said, e.first.gate.confirms.isEmpty())
+            assertEquals(said, "CANCELLED by user", e.tap())
+            assertEquals(said, RiskCategory.DELETE, e.first.gate.confirms.single().first)
         }
     }
 
@@ -322,7 +322,7 @@ class RiskJudgeTest {
             assertEquals(said, RiskCategory.DELETE, r.first.gate.confirms.single().first)
         }
         // A word like "다" inside another word is not "all".
-        assertTrue(deleteRig(said = "다음 주 회의 알람 지워줘").tap().startsWith("OK"))
+        assertEquals("CANCELLED by user", deleteRig(said = "다음 주 회의 알람 지워줘").tap())
     }
 
     @Test fun noDeleteDeclarationKeepsTheKeywordCard() = runTest {
