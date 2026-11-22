@@ -18,6 +18,8 @@ import com.phoneuse.screen.TreeCompressor
 import com.phoneuse.screen.UiNode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -259,6 +261,7 @@ class ToolExecutor(
      * made the call; its user_authorized never counts (it did not see what the user wrote).
      */
     suspend fun execute(call: InputItem.FunctionCall, current: CompressedScreen?, fromHelper: Boolean = false): ToolResult {
+        currentCoroutineContext().ensureActive()
         helperCall = fromHelper
         return try {
             executeInner(call, current).let {
@@ -670,6 +673,8 @@ class ToolExecutor(
         // The last step that ran; the UI is settled after it before the next step and before the final read.
         var acted: String? = null
         for ((i, action) in actions.withIndex()) {
+            // Stop immediately before the next queued action if the user cancelled the run.
+            currentCoroutineContext().ensureActive()
             val n = i + 1
             val obj = action as? JsonObject ?: throw ArgException("action $n must be an object")
             val tool = obj.requireStr("tool")
