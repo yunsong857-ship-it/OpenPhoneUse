@@ -93,7 +93,7 @@ internal class MemoryModule(
                     val store = a.store!!
                     val memory = store.get(id) ?: return fail("no memory [$id]")
                     // Saved memories are user data: every deletion requires explicit approval.
-                    if (gate != null && !gate.confirm(RiskCategory.DELETE, tr("Forget: ${memory.text.take(FORGET_PREVIEW_CHARS)}", "기억 지우기: ${memory.text.take(FORGET_PREVIEW_CHARS)}"))) {
+                    if (gate == null || !gate.confirm(RiskCategory.DELETE, tr("Forget: ${memory.text.take(FORGET_PREVIEW_CHARS)}", "기억 지우기: ${memory.text.take(FORGET_PREVIEW_CHARS)}"))) {
                         return ToolResult("CANCELLED by user", null, null, null)
                     }
                     if (!store.delete(id)) return fail("no memory [$id]")
