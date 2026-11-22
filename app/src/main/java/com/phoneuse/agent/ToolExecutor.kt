@@ -401,7 +401,7 @@ class ToolExecutor(
                 // never approves a send without seeing what goes.
                 val gated = allowed(tool, index, now, args, typed = text)
                 if (gated == Gate.DENIED) return false
-                if (args.bool("submit") == true && !userAuthorized(args, now, index, text) &&
+                if (args.bool("submit") == true &&
                     gated != Gate.CONFIRMED_SEND && !isSearchField(node) &&
                     !confirming.confirm(RiskCategory.SEND, tr("Type and send: \"${preview(text, SEND_PREVIEW_CHARS)}\"", "입력 후 전송: \"${preview(text, SEND_PREVIEW_CHARS)}\""))
                 ) {
@@ -632,11 +632,8 @@ class ToolExecutor(
         // The model's own declaration may add risk or clear a weak keyword hit; without one the keywords decide alone.
         val judgment = if (inlineRisk && RiskJudge.judges(tool, screen.packageName)) RiskJudge.fromArgs(args) else null
         val cat = RiskCombine.combine(match, judgment) ?: return Gate.PASSED
-        val needsConfirm = when (cat) {
-            RiskCategory.SEND -> !userAuthorized(args, screen, index.takeIf { typed != null }, typed)
-            RiskCategory.DELETE -> !deleteSkips(judgment, label, context, name, screen.packageName)
-            else -> true
-        }
+        // Every classified risk category is confirmed, even when the user requested the action.
+        val needsConfirm = true
         if (!needsConfirm) return Gate.PASSED
         return when {
             !confirming.confirm(cat, cardSummary(tool, name, context, typed, judgment?.effect)) -> Gate.DENIED
