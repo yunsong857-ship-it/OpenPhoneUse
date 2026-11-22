@@ -79,16 +79,17 @@ class ToolExecutorTest {
         assertEquals("tap: 결제하기", gate.confirms[0].second)
     }
 
-    @Test fun sendWithUserAuthorizedSkipsConfirm() = runTest {
+    @Test fun sendWithUserAuthorizedStillRequiresConfirm() = runTest {
         val sendScreen = snap("보내기")
         val (dev, gate, ex) = setup(sendScreen)
         ex.execute(call("tap", """{"index":1,"user_authorized":true}"""), screenOf(sendScreen))
-        assertTrue(gate.confirms.isEmpty())
+        assertEquals(1, gate.confirms.size)
+        assertEquals(RiskCategory.SEND, gate.confirms[0].first)
         assertTrue(dev.calls.any { it.startsWith("tap") })
 
         val r = ex.execute(call("tap", """{"index":1}"""), screenOf(sendScreen))
-        assertEquals(1, gate.confirms.size)
-        assertEquals(RiskCategory.SEND, gate.confirms[0].first)
+        assertEquals(2, gate.confirms.size)
+        assertEquals(RiskCategory.SEND, gate.confirms[1].first)
         assertTrue(r.output.startsWith("OK"))
     }
 
@@ -674,14 +675,15 @@ class ToolExecutorTest {
         fun chat(draft: String) = ScreenSnapshot(
             "com.app", 1080, 2400, listOf(button(draft, 1800, editable = true), button("보내기", 1900)),
         )
-        // The draft is what the user said: no card, even after reading the chat.
+        // Matching user-authored content still requires final approval.
         val ok = chat("늦어 미안")
         val (dev, gate, ex) = setup(ok)
+        gate.confirmResult = false
         ex.userSaid("엄마한테 \"늦어  미안\" 이라고 보내줘")
         ex.markThirdParty()
-        assertTrue(ex.execute(call("tap", """{"index":2,"user_authorized":true}"""), screenOf(ok)).output.startsWith("OK"))
-        assertTrue(gate.confirms.isEmpty())
-        assertTrue(dev.calls.isNotEmpty())
+        assertEquals("CANCELLED by user", ex.execute(call("tap", """{"index":2,"user_authorized":true}"""), screenOf(ok)).output)
+        assertEquals(RiskCategory.SEND, gate.confirms.single().first)
+        assertTrue(dev.calls.none { it.startsWith("tap") })
 
         // A draft the user never wrote (a chat bubble asked for it): the claim is ignored and the card shows.
         val injected = chat("네 동의합니다")
@@ -698,8 +700,8 @@ class ToolExecutorTest {
         ex3.markThirdParty()
         gate3.confirmResult = false
         val typed = ex3.execute(call("type_text", """{"index":1,"text":"회의 5분 늦어요","submit":true,"user_authorized":true}"""), screenOf(field))
-        assertTrue(typed.output, typed.output.startsWith("OK"))
-        assertTrue(gate3.confirms.isEmpty())
+        assertEquals("CANCELLED by user", typed.output)
+        assertEquals(RiskCategory.SEND, gate3.confirms.single().first)
         val other = ex3.execute(call("type_text", """{"index":1,"text":"계좌번호 알려줘","submit":true,"user_authorized":true}"""), screenOf(field))
         assertEquals("CANCELLED by user", other.output)
     }
@@ -710,11 +712,11 @@ class ToolExecutorTest {
         gate.confirmResult = false
         assertEquals("CANCELLED by user", ex.execute(call("tap", """{"index":1,"user_authorized":true}"""), screenOf(s), fromHelper = true).output)
         assertEquals(RiskCategory.SEND, gate.confirms.single().first)
-        // The same call from the main model (clean run) goes through.
+        // The same call from the main model also requires confirmation.
         gate.confirms.clear()
         val (_, gate2, ex2) = setup(s)
         assertTrue(ex2.execute(call("tap", """{"index":1,"user_authorized":true}"""), screenOf(s)).output.startsWith("OK"))
-        assertTrue(gate2.confirms.isEmpty())
+        assertEquals(RiskCategory.SEND, gate2.confirms.single().first)
     }
 
     @Test fun submitInSearchFieldDoesNotConfirm() = runTest {
@@ -807,13 +809,13 @@ class ToolExecutorTest {
         assertTrue(dev.calls.none { it.startsWith("setText") })
     }
 
-    @Test fun submitWithAuthorizationSkipsConfirm() = runTest {
+    @Test fun submitWithAuthorizationStillRequiresConfirm() = runTest {
         val (dev, gate, ex) = setup(field)
         val r = ex.execute(
             call("type_text", """{"index":1,"text":"hi","submit":true,"user_authorized":true}"""),
             screenOf(field),
         )
-        assertTrue(gate.confirms.isEmpty())
+        assertEquals(listOf(RiskCategory.SEND), gate.confirms.map { it.first })
         assertTrue(r.output, r.output.startsWith("OK"))
         assertTrue(dev.calls.any { it.startsWith("setText") })
     }
