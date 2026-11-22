@@ -1,4 +1,5 @@
 name: CI
+# Trigger CI from connected GitHub
 
 on:
   push:
