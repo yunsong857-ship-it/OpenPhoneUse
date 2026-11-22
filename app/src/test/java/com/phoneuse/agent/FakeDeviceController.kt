@@ -12,6 +12,7 @@ class FakeDeviceController(snapshots: List<ScreenSnapshot> = emptyList()) : Devi
     var unavailable = false
     var failAll = false
     var throwOnTap: Exception? = null
+    var afterTap: (() -> Unit)? = null
     var playing = false
     private var snapshotCount = 0
 
@@ -49,6 +50,7 @@ class FakeDeviceController(snapshots: List<ScreenSnapshot> = emptyList()) : Devi
     override suspend fun tap(x: Int, y: Int): Boolean {
         record("tap($x,$y)")
         throwOnTap?.let { throw it }
+        afterTap?.invoke()
         return !failAll
     }
 
