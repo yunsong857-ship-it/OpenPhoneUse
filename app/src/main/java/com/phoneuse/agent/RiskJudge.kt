@@ -96,13 +96,13 @@ object RiskJudge {
  * - A strong keyword match always stands; the judgment can only raise it to a more severe category.
  * - A weak keyword match is the judgment's call: its NONE clears it, a category of its own replaces it unless less severe.
  * - No keyword match: the judgment's category.
- * The judgment's CHANGE never asks on its own (an ordinary toggle the user asked for); it only clears a weak hit.
+ * CHANGE is retained as a risk category: settings and saved-state changes also require explicit confirmation.
  * Severity: MONEY > SECURITY > DELETE > SEND > CHANGE.
  */
 object RiskCombine {
     fun combine(static: RiskMatch?, ai: RiskJudge.Judgment?): RiskCategory? {
         if (ai == null) return static?.category
-        val judged = ai.category?.takeIf { it != RiskCategory.CHANGE }
+        val judged = ai.category
         return when {
             static == null -> judged
             static.strong -> severer(static.category, judged)

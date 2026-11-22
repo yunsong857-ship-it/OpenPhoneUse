@@ -18,6 +18,8 @@ import com.phoneuse.screen.TreeCompressor
 import com.phoneuse.screen.UiNode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -69,9 +71,7 @@ class ToolExecutor(
     /** make_routine; null leaves it out. */
     routines: RoutineAccess? = null,
     /**
-     * Settings "메시지 보내기 전 확인" (see [ConfirmPolicy]): false lets SEND and CHANGE go without a card. It applies
-     * only where the user wrote the request ([trustUserAuthorized]); send_sms, MONEY and SECURITY always ask, and
-     * DELETE asks unless the user asked for that deletion ([deleteSkips]).
+     * Legacy setting retained for compatibility. Risk categories now always require a per-action confirmation.
      */
     confirmSend: Boolean = true,
     /** Settings "모델에 보내는 화면 내용: 글자만": false keeps screenshots out of the run (the screen tree still goes). */
@@ -91,15 +91,8 @@ class ToolExecutor(
     /** Builds the run's tool modules; tests may add one (see [ToolRegistry] for adding a module for real). */
     registry: (ToolDeps) -> List<ToolModule> = ToolRegistry::modules,
 ) {
-    /**
-     * The gate for every confirmation the setting may skip; send_sms keeps [gate] (it always asks). Decided at each
-     * confirmation: a card is skipped only while the switch is off, the user wrote the request, the history is clean
-     * and this run has not read third-party text so far (a screen, a notification, a mail). A routine run ignores the
-     * switch (its only skip is its own [fixedSend] match; the runner also passes confirmSend for every routine).
-     */
-    private val confirming: UserGate = ConfirmPolicyGate(gate) {
-        confirmSend || !trustUserAuthorized || historyTainted || runThirdParty || fixedSend != null
-    }
+    /** Every high-impact action goes through this strict gate; run provenance cannot bypass it. */
+    private val confirming: UserGate = ConfirmPolicyGate(gate, confirmSend = { confirmSend })
     /** Third-party text entered this run itself (history aside). */
     @Volatile private var runThirdParty = false
 
@@ -268,6 +261,7 @@ class ToolExecutor(
      * made the call; its user_authorized never counts (it did not see what the user wrote).
      */
     suspend fun execute(call: InputItem.FunctionCall, current: CompressedScreen?, fromHelper: Boolean = false): ToolResult {
+        currentCoroutineContext().ensureActive()
         helperCall = fromHelper
         return try {
             executeInner(call, current).let {
@@ -401,7 +395,7 @@ class ToolExecutor(
                 // never approves a send without seeing what goes.
                 val gated = allowed(tool, index, now, args, typed = text)
                 if (gated == Gate.DENIED) return false
-                if (args.bool("submit") == true && !userAuthorized(args, now, index, text) &&
+                if (args.bool("submit") == true &&
                     gated != Gate.CONFIRMED_SEND && !isSearchField(node) &&
                     !confirming.confirm(RiskCategory.SEND, tr("Type and send: \"${preview(text, SEND_PREVIEW_CHARS)}\"", "입력 후 전송: \"${preview(text, SEND_PREVIEW_CHARS)}\""))
                 ) {
@@ -632,12 +626,7 @@ class ToolExecutor(
         // The model's own declaration may add risk or clear a weak keyword hit; without one the keywords decide alone.
         val judgment = if (inlineRisk && RiskJudge.judges(tool, screen.packageName)) RiskJudge.fromArgs(args) else null
         val cat = RiskCombine.combine(match, judgment) ?: return Gate.PASSED
-        val needsConfirm = when (cat) {
-            RiskCategory.SEND -> !userAuthorized(args, screen, index.takeIf { typed != null }, typed)
-            RiskCategory.DELETE -> !deleteSkips(judgment, label, context, name, screen.packageName)
-            else -> true
-        }
-        if (!needsConfirm) return Gate.PASSED
+        // Every classified risk category is confirmed, even when the user requested the action.
         return when {
             !confirming.confirm(cat, cardSummary(tool, name, context, typed, judgment?.effect)) -> Gate.DENIED
             cat == RiskCategory.SEND -> Gate.CONFIRMED_SEND
@@ -684,6 +673,8 @@ class ToolExecutor(
         // The last step that ran; the UI is settled after it before the next step and before the final read.
         var acted: String? = null
         for ((i, action) in actions.withIndex()) {
+            // Stop immediately before the next queued action if the user cancelled the run.
+            currentCoroutineContext().ensureActive()
             val n = i + 1
             val obj = action as? JsonObject ?: throw ArgException("action $n must be an object")
             val tool = obj.requireStr("tool")
