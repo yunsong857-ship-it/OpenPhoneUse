@@ -240,6 +240,17 @@ class RiskJudgeTest {
         assertTrue(r.ex.execute(call("tap", """{"index":2,"risk":"money"}"""), screenOf(s)).output.startsWith("OK"))
     }
 
+    @Test fun declaredSettingsChangeRequiresConfirmation() = runTest {
+        val s = snap(node("开启通知", 100))
+        val r = rig(s)
+        r.gate.confirmResult = false
+        assertEquals(
+            "CANCELLED by user",
+            r.ex.execute(call("tap", """{"index":1,"risk":"change","effect":"通知设置已更改"}"""), screenOf(s)).output,
+        )
+        assertEquals(RiskCategory.CHANGE, r.gate.confirms.single().first)
+    }
+
     @Test fun ownAppIsNeverJudged() = runTest {
         val own = snap(node("보내기", 100), pkg = "com.phoneuse")
         val r = rig(own)
