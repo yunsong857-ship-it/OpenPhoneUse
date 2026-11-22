@@ -49,7 +49,7 @@ class MemoryAccess(
  */
 internal class MemoryModule(
     private val access: MemoryAccess?,
-    /** Asks before forget once third-party text is in the run; null never asks. */
+    /** Confirmation gate for every saved-memory deletion. */
     private val gate: UserGate? = null,
     /** True once text the user did not write is in the run (ToolExecutor.thirdPartySeen). */
     private val thirdParty: () -> Boolean = { false },
@@ -92,8 +92,8 @@ internal class MemoryModule(
                     val id = args.long("id") ?: throw IllegalArgumentException("id required")
                     val store = a.store!!
                     val memory = store.get(id) ?: return fail("no memory [$id]")
-                    // Text on a page or in a message may ask to wipe memories: in a tainted run the user decides.
-                    if (thirdPartySeen && gate != null && !gate.confirm(RiskCategory.DELETE, tr("Forget: ${memory.text.take(FORGET_PREVIEW_CHARS)}", "기억 지우기: ${memory.text.take(FORGET_PREVIEW_CHARS)}"))) {
+                    // Saved memories are user data: every deletion requires explicit approval.
+                    if (gate != null && !gate.confirm(RiskCategory.DELETE, tr("Forget: ${memory.text.take(FORGET_PREVIEW_CHARS)}", "기억 지우기: ${memory.text.take(FORGET_PREVIEW_CHARS)}"))) {
                         return ToolResult("CANCELLED by user", null, null, null)
                     }
                     if (!store.delete(id)) return fail("no memory [$id]")
