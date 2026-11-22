@@ -69,9 +69,7 @@ class ToolExecutor(
     /** make_routine; null leaves it out. */
     routines: RoutineAccess? = null,
     /**
-     * Settings "메시지 보내기 전 확인" (see [ConfirmPolicy]): false lets SEND and CHANGE go without a card. It applies
-     * only where the user wrote the request ([trustUserAuthorized]); send_sms, MONEY and SECURITY always ask, and
-     * DELETE asks unless the user asked for that deletion ([deleteSkips]).
+     * Legacy setting retained for compatibility. Risk categories now always require a per-action confirmation.
      */
     confirmSend: Boolean = true,
     /** Settings "모델에 보내는 화면 내용: 글자만": false keeps screenshots out of the run (the screen tree still goes). */
@@ -91,15 +89,8 @@ class ToolExecutor(
     /** Builds the run's tool modules; tests may add one (see [ToolRegistry] for adding a module for real). */
     registry: (ToolDeps) -> List<ToolModule> = ToolRegistry::modules,
 ) {
-    /**
-     * The gate for every confirmation the setting may skip; send_sms keeps [gate] (it always asks). Decided at each
-     * confirmation: a card is skipped only while the switch is off, the user wrote the request, the history is clean
-     * and this run has not read third-party text so far (a screen, a notification, a mail). A routine run ignores the
-     * switch (its only skip is its own [fixedSend] match; the runner also passes confirmSend for every routine).
-     */
-    private val confirming: UserGate = ConfirmPolicyGate(gate) {
-        confirmSend || !trustUserAuthorized || historyTainted || runThirdParty || fixedSend != null
-    }
+    /** Every high-impact action goes through this strict gate; run provenance cannot bypass it. */
+    private val confirming: UserGate = ConfirmPolicyGate(gate, confirmSend = { confirmSend })
     /** Third-party text entered this run itself (history aside). */
     @Volatile private var runThirdParty = false
 
@@ -633,8 +624,6 @@ class ToolExecutor(
         val judgment = if (inlineRisk && RiskJudge.judges(tool, screen.packageName)) RiskJudge.fromArgs(args) else null
         val cat = RiskCombine.combine(match, judgment) ?: return Gate.PASSED
         // Every classified risk category is confirmed, even when the user requested the action.
-        val needsConfirm = true
-        if (!needsConfirm) return Gate.PASSED
         return when {
             !confirming.confirm(cat, cardSummary(tool, name, context, typed, judgment?.effect)) -> Gate.DENIED
             cat == RiskCategory.SEND -> Gate.CONFIRMED_SEND
