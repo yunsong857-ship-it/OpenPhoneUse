@@ -311,6 +311,17 @@ internal object ChineseText {
         Regex("""^Saved to Downloads · (.*)$""").matchEntire(english)?.let { return "已保存到下载文件夹 · " + it.groupValues[1] }
         Regex("""^Allowed · (.*)$""").matchEntire(english)?.let { return "已允许 · " + it.groupValues[1] }
         Regex("""^(\d+) tools$""").matchEntire(english)?.let { return it.groupValues[1] + " 个工具" }
+        Regex("""^Make a routine: (.*)$""").matchEntire(english)?.let { return "创建自动流程：" + it.groupValues[1] }
+        Regex("""^Couldn't load the model list: (.*)$""").matchEntire(english)?.let { return "无法加载模型列表：" + it.groupValues[1] }
+        Regex("""^(.*) connected$""").matchEntire(english)?.let { return it.groupValues[1] + " 已连接" }
+        Regex("""^No memories match ‘(.*)’\.$""").matchEntire(english)?.let { return "没有与“" + it.groupValues[1] + "”匹配的记忆。" }
+        Regex("""^Show my (.*) event today as a card$""").matchEntire(english)?.let { return "将我今天的 " + it.groupValues[1] + " 日程显示为卡片" }
+        Regex("""^No notifications in the last (\d+) hours\.$""").matchEntire(english)?.let { return "过去 " + it.groupValues[1] + " 小时内没有收到通知。" }
+        Regex("""^Today (.*)$""").matchEntire(english)?.let { return "今天 " + it.groupValues[1] }
+        Regex("""^Yesterday (.*)$""").matchEntire(english)?.let { return "昨天 " + it.groupValues[1] }
+        Regex("""^Last run (.*)$""").matchEntire(english)?.let { return "上次运行：" + it.groupValues[1] }
+        Regex("""^Map search · (.*)$""").matchEntire(english)?.let { return "地图搜索 · " + it.groupValues[1] }
+        Regex("""^Open (.*)$""").matchEntire(english)?.let { return "打开 " + it.groupValues[1] }
         return null
     }
 }

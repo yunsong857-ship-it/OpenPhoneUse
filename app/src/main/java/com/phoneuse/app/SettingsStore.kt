@@ -150,10 +150,10 @@ class SettingsStore internal constructor(
         prefs[THEME]?.let { s -> ThemeMode.entries.firstOrNull { it.name == s } } ?: ThemeMode.SYSTEM
     }
 
-    /** Settings "대화 기록 보관": days to keep a conversation after its last message; 0 = forever (the default). */
     /** The language shown by this app; SYSTEM follows the device locale. */
     val appLanguage: Flow<AppLanguage> = store.data.map { enumOf(it[APP_LANGUAGE], AppLanguage.SYSTEM) }
 
+    /** Settings "대화 기록 보관": days to keep a conversation after its last message; 0 = forever (the default). */
     val retentionDays: Flow<Int> = store.data.map { prefs -> prefs[RETENTION]?.takeIf { it in RETENTION_OPTIONS } ?: 0 }
 
     /**
