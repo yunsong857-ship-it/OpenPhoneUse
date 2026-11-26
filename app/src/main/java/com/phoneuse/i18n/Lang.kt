@@ -22,7 +22,11 @@ object Lang {
 
     @Volatile
     var korean: Boolean = isKorean(Locale.getDefault())
-        private set
+        set(value) {
+            field = value
+            // Keep the legacy test/configuration hook coherent with the new third language.
+            chinese = false
+        }
 
     @Volatile
     var chinese: Boolean = isChinese(Locale.getDefault())
