@@ -4,30 +4,57 @@ import android.os.LocaleList
 import java.util.Locale
 
 /**
- * The app's language: English by default, Korean when the device language is Korean.
- *
- * User-facing text is written in place as [tr]("English", "한국어"), so both languages stay next to each other
- * and plain JVM code (routines, nudges, cards) can be localized without a Context. Unit tests run in Korean
- * (`user.language=ko` in app/build.gradle.kts), so existing assertions keep their Korean text.
+ * The app follows the first configured app/device locale.
+ * English and Korean copy remains side by side in [tr]; Simplified Chinese is supplied by [ZhCN].
  */
 object Lang {
     @Volatile
     var korean: Boolean = isKorean(Locale.getDefault())
 
-    /** Follows [locales]' first language; called at startup and when the configuration changes. */
+    @Volatile
+    var simplifiedChinese: Boolean = isSimplifiedChinese(Locale.getDefault())
+
+    /** Follows the first app/device language; called at startup and when configuration changes. */
     fun update(locales: LocaleList) {
         val locale = locales.takeIf { !it.isEmpty }?.get(0) ?: Locale.getDefault()
         korean = isKorean(locale)
+        simplifiedChinese = isSimplifiedChinese(locale)
     }
 
     fun isKorean(locale: Locale): Boolean = locale.language == "ko"
 
-    /** The language's English name, for instructions to the model. */
-    val name: String get() = if (korean) "Korean" else "English"
+    /**
+     * Accept explicit Simplified Chinese script tags (zh-Hans) and the common
+     * Simplified Chinese regions (CN and SG). Traditional Chinese (TW/HK/MO) stays English
+     * until a Traditional Chinese translation is provided.
+     */
+    fun isSimplifiedChinese(locale: Locale): Boolean =
+        locale.language == "zh" && (
+            locale.script.equals("Hans", ignoreCase = true) ||
+                locale.country.equals("CN", ignoreCase = true) ||
+                locale.country.equals("SG", ignoreCase = true)
+            )
 
-    /** The language tag the model is told to answer in when the user's own words do not settle it. */
-    val tag: String get() = if (korean) "ko" else "en"
+    /** The language's English name, for instructions to the model. */
+    val name: String
+        get() = when {
+            simplifiedChinese -> "Simplified Chinese"
+            korean -> "Korean"
+            else -> "English"
+        }
+
+    /** Language tag the model is asked to use when the user's own words do not settle it. */
+    val tag: String
+        get() = when {
+            simplifiedChinese -> "zh-CN"
+            korean -> "ko"
+            else -> "en"
+        }
 }
 
-/** [en], or [ko] when the app runs in Korean. */
-fun tr(en: String, ko: String): String = if (Lang.korean) ko else en
+/** The app's UI copy: English by default, Korean or Simplified Chinese when selected. */
+fun tr(en: String, ko: String): String = when {
+    Lang.simplifiedChinese -> ZhCN.translate(en) ?: en
+    Lang.korean -> ko
+    else -> en
+}
