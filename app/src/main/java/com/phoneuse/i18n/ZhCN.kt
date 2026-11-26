@@ -224,12 +224,12 @@ internal object ZhCN {
     )
 
     private val dynamic = listOf(
-        Regex("""^(\d+) min$""") to "$1 分钟",
-        Regex("""^(\d+)d ago$""") to "$1 天前",
+        Regex("""^(\d+) min$""") to "\$1 分钟",
+        Regex("""^(\d+)d ago$""") to "\$1 天前",
         Regex("""^Today (.+)$""") to "今天 $1",
         Regex("""^Yesterday (.+)$""") to "昨天 $1",
         Regex("""^(\d+) needed$""") to "还需要 $1 项权限",
-        Regex("""^(\d+) tools$""") to "$1 个工具",
+        Regex("""^(\d+) tools$""") to "\$1 个工具",
         Regex("""^Total (.+)$""") to "合计 $1",
         Regex("""^Last run (.+)$""") to "上次运行：$1",
         Regex("""^Task finished · (.+)$""") to "任务已完成 · $1",
