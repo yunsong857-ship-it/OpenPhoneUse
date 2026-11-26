@@ -1,6 +1,7 @@
 package com.phoneuse.i18n
 
 import android.os.LocaleList
+import androidx.compose.runtime.mutableStateOf
 import java.util.Locale
 
 /** A persisted per-app language. SYSTEM follows the phone's current language. */
@@ -20,17 +21,24 @@ object Lang {
     var selection: AppLanguage = AppLanguage.SYSTEM
         private set
 
-    @Volatile
-    var korean: Boolean = isKorean(Locale.getDefault())
+    // Snapshot state makes every Compose surface that calls tr() redraw when the language changes.
+    private val koreanState = mutableStateOf(isKorean(Locale.getDefault()))
+    private val chineseState = mutableStateOf(isChinese(Locale.getDefault()))
+
+    /** Kept writable for existing tests and legacy callers that force the English/Korean branch. */
+    var korean: Boolean
+        get() = koreanState.value
         set(value) {
-            field = value
+            koreanState.value = value
             // Keep the legacy test/configuration hook coherent with the new third language.
-            chinese = false
+            chineseState.value = false
         }
 
-    @Volatile
-    var chinese: Boolean = isChinese(Locale.getDefault())
-        private set
+    var chinese: Boolean
+        get() = chineseState.value
+        private set(value) {
+            chineseState.value = value
+        }
 
     /** Follow the effective app locale; called at startup and when Android configuration changes. */
     fun update(locales: LocaleList) {
