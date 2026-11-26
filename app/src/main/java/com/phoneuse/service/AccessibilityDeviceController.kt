@@ -23,7 +23,10 @@ import com.phoneuse.agent.AppInfo
 import com.phoneuse.agent.DeviceController
 import com.phoneuse.agent.GlobalAction
 import com.phoneuse.agent.ScreenMark
+import com.phoneuse.agent.TwoFingerGesture
 import com.phoneuse.agent.ServiceUnavailableException
+import com.phoneuse.overlay.HandoffControls
+import com.phoneuse.overlay.HandoffWindows
 import com.phoneuse.screen.ScreenSnapshot
 import com.phoneuse.screen.ScreenBusy
 import com.phoneuse.screen.TreeCompressor
@@ -64,7 +67,10 @@ class AccessibilityDeviceController(
         PhoneUseAccessibilityService.instance ?: throw ServiceUnavailableException()
 
     private suspend fun <T> passThrough(x: Int, y: Int, block: suspend () -> T): T =
-        overlay.let { o -> if (o != null) o.passThrough(x, y, block) else block() }
+        passThrough(listOf(x to y), block)
+
+    private suspend fun <T> passThrough(starts: List<Pair<Int, Int>>, block: suspend () -> T): T =
+        overlay.let { o -> if (o != null) o.passThrough(starts, block) else block() }
 
     private fun displayBounds(s: PhoneUseAccessibilityService): Rect =
         (s.getSystemService(Context.WINDOW_SERVICE) as WindowManager).currentWindowMetrics.bounds
@@ -103,6 +109,12 @@ class AccessibilityDeviceController(
 
     /** The last few reads handed out by [snapshot], newest first: the screens the model was shown. */
     private val shown = ArrayDeque<Read>()
+
+    /** Place the handoff using the last screen we already showed, without reading the app during private input. */
+    internal fun lastShownControls(windows: HandoffWindows, width: Int, height: Int): HandoffControls {
+        val screen = synchronized(shown) { shown.firstOrNull()?.snap } ?: return HandoffControls()
+        return windows.controlsFrom(screen, width, height)
+    }
 
     override suspend fun snapshot(): ScreenSnapshot {
         val s = service()
@@ -193,22 +205,10 @@ class AccessibilityDeviceController(
 
     override suspend fun screenshot(): ByteArray? = markedScreenshot(emptyList())
 
-    override suspend fun markedScreenshot(marks: List<ScreenMark>): ByteArray? {
-        val s = service()
-        val run: suspend () -> ByteArray? = { captureJpeg(s, marks) }
-        val o = overlay
-        return if (o != null) o.hiddenForCapture(run) else run()
-    }
+    override suspend fun canCaptureScreen(): Boolean = capture(copyPixels = false) == ShotResult.Allowed
 
-    private suspend fun captureJpeg(s: PhoneUseAccessibilityService, marks: List<ScreenMark>): ByteArray? {
-        var result = takeScreenshotOnce(s)
-        if (result is ShotResult.Error && result.code ==
-            AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT
-        ) {
-            delay(350)
-            result = takeScreenshotOnce(s)
-        }
-        val bitmap = (result as? ShotResult.Ok)?.bitmap ?: return null
+    override suspend fun markedScreenshot(marks: List<ScreenMark>): ByteArray? {
+        val bitmap = (capture(copyPixels = true) as? ShotResult.Ok)?.bitmap ?: return null
         val longest = maxOf(bitmap.width, bitmap.height)
         val scaled = if (longest > MAX_EDGE) {
             val f = MAX_EDGE.toFloat() / longest
@@ -231,14 +231,28 @@ class AccessibilityDeviceController(
 
     private sealed interface ShotResult {
         class Ok(val bitmap: Bitmap) : ShotResult
+        data object Allowed : ShotResult
         class Error(val code: Int) : ShotResult
     }
 
-    /** The GPU readback and copy run off the main thread, so the overlay and event delivery do not stall. */
-    private suspend fun takeScreenshotOnce(s: PhoneUseAccessibilityService): ShotResult =
-        withTimeoutOrNull(SCREENSHOT_TIMEOUT_MS) { takeScreenshotUnbounded(s) } ?: ShotResult.Error(-2)
+    private suspend fun capture(copyPixels: Boolean): ShotResult {
+        val s = service()
+        val run: suspend () -> ShotResult = {
+            val first = takeScreenshotOnce(s, copyPixels)
+            if (first is ShotResult.Error && first.code == AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT) {
+                delay(350)
+                takeScreenshotOnce(s, copyPixels)
+            } else first
+        }
+        val o = overlay
+        return if (o != null) o.hiddenForCapture(run) else run()
+    }
 
-    private suspend fun takeScreenshotUnbounded(s: PhoneUseAccessibilityService): ShotResult =
+    /** The GPU readback and copy run off the main thread, so the overlay and event delivery do not stall. */
+    private suspend fun takeScreenshotOnce(s: PhoneUseAccessibilityService, copyPixels: Boolean): ShotResult =
+        withTimeoutOrNull(SCREENSHOT_TIMEOUT_MS) { takeScreenshotUnbounded(s, copyPixels) } ?: ShotResult.Error(-2)
+
+    private suspend fun takeScreenshotUnbounded(s: PhoneUseAccessibilityService, copyPixels: Boolean): ShotResult =
         suspendCancellableCoroutine { cont ->
             s.takeScreenshot(
                 Display.DEFAULT_DISPLAY,
@@ -246,6 +260,11 @@ class AccessibilityDeviceController(
                 object : AccessibilityService.TakeScreenshotCallback {
                     override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                         val buffer = screenshot.hardwareBuffer
+                        if (!copyPixels) {
+                            buffer.close()
+                            if (cont.isActive) cont.resume(ShotResult.Allowed)
+                            return
+                        }
                         val r: ShotResult = try {
                             val hw = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
                             val copy = hw?.copy(Bitmap.Config.ARGB_8888, true)
@@ -303,23 +322,53 @@ class AccessibilityDeviceController(
         val (a, b) = EdgeGuard.pinch(x, y, zoomIn, e.width, e.height, e.side, e.top, e.bottom)
         overlay?.showTouch(a.x1, a.y1, a.x2, a.y2)
         overlay?.showTouch(b.x1, b.y1, b.x2, b.y2)
-        val ms = durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS)
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path(a), 0, ms))
-            .addStroke(GestureDescription.StrokeDescription(path(b), 0, ms))
-            .build()
-        return passThrough(x, y) { dispatch(gesture, ms) }
+        return dispatchPair(path(a), path(b), listOf(a.x1 to a.y1, b.x1 to b.y1), durationMs)
     }
 
-    private class Edges(val width: Int, val height: Int, val side: Int, val top: Int, val bottom: Int)
+    override fun planRotate(x: Int, y: Int, degrees: Int, spreadPx: Int?) = edges(service()).rotate(x, y, degrees, spreadPx)
+
+    override fun planTwoFingerSwipe(x1: Int, y1: Int, x2: Int, y2: Int) = edges(service()).twoFingerSwipe(x1, y1, x2, y2)
+
+    override suspend fun executeTwoFinger(plan: TwoFingerGesture, durationMs: Long): Boolean {
+        // Refuse a plan if the display changed during confirmation and would now move either contact.
+        val paths = when (plan) {
+            is TwoFingerGesture.Rotation -> {
+                if (planRotate(plan.cx, plan.cy, plan.degrees, 2 * plan.radius) != plan) return false
+                fun arc(startAngle: Float) = Path().apply {
+                    addArc(
+                        (plan.cx - plan.radius).toFloat(), (plan.cy - plan.radius).toFloat(),
+                        (plan.cx + plan.radius).toFloat(), (plan.cy + plan.radius).toFloat(),
+                        startAngle, plan.degrees.toFloat(),
+                    )
+                }
+                arc(180f) to arc(0f)
+            }
+            is TwoFingerGesture.Swipe -> {
+                if (planTwoFingerSwipe(plan.x1, plan.y1, plan.x2, plan.y2) != plan) return false
+                fun track(offset: Int) = path(EdgeGuard.Stroke(plan.x1 + offset, plan.y1, plan.x2 + offset, plan.y2))
+                track(-plan.halfSpacing) to track(plan.halfSpacing)
+            }
+        }
+        for ((x, y) in plan.starts) overlay?.showTouch(x, y)
+        return dispatchPair(paths.first, paths.second, plan.starts, durationMs)
+    }
+
+    private suspend fun dispatchPair(first: Path, second: Path, starts: List<Pair<Int, Int>>, durationMs: Long): Boolean {
+        val ms = durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS)
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(first, 0, ms))
+            .addStroke(GestureDescription.StrokeDescription(second, 0, ms))
+            .build()
+        return passThrough(starts) { dispatch(gesture, ms) }
+    }
 
     /** The screen and its system gesture strips, at least [EDGE_SIDE_DP] / [EDGE_TOP_DP] / [EDGE_BOTTOM_DP] wide. */
-    private fun edges(s: PhoneUseAccessibilityService): Edges {
+    private fun edges(s: PhoneUseAccessibilityService): EdgeGuard.Edges {
         val metrics = (s.getSystemService(Context.WINDOW_SERVICE) as WindowManager).currentWindowMetrics
         val gestures = metrics.windowInsets.getInsets(WindowInsets.Type.systemGestures())
         val density = s.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
-        return Edges(
+        return EdgeGuard.Edges(
             metrics.bounds.width(),
             metrics.bounds.height(),
             side = maxOf(gestures.left, gestures.right, dp(EDGE_SIDE_DP)),

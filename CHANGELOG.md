@@ -4,6 +4,20 @@ All notable changes to OpenPhoneUse are listed here, newest first. The format fo
 
 ## [Unreleased]
 
+- In a batch, the step right after a two-finger rotation or swipe checks screen capture again even when the screen looks unchanged, and a two-finger gesture makes one capture check before it starts instead of two.
+
+## [0.0.8] - 2026-11-23
+
+- Dictation in the floating panel fills its input so you can edit a follow-up before pressing Send. When the task ends, the chat keeps any unsent words from the panel. (#24, #23)
+- Photos and files finish importing into the conversation where you attached them, even if you switch chats. (#24)
+- The agent can adjust its finger spacing to rotate small objects, or swipe two fingers side by side to pan a canvas or tilt a 3D map. (#27, #26)
+- When Android reports a failed display capture check, the agent withholds the screen and stops actions aimed at it, including in text-only mode and during a batch. A temporary failure prompts a fresh screen read. A failed retry on the same app produces a protection notice. (#31)
+- **Enter a PIN during handoff.** A compact bar shows what the agent needs you to do and leaves room for the app’s keypad. Tap the instructions to read more, **Move** to uncover a control, or **Done, continue** when you finish. (#33, #32)
+- **The app speaks English on phones not set to Korean.** Cards, routine messages, notification summaries, parcel and payment lines, permission notes, errors and the instructions sent to the model follow the app language. Before, many of them stayed in Korean. (#19, #20, #21, #22)
+- **Voice input follows the device language by default.** Before, it always listened for Korean, so speech in other languages came out as Korean text. You can still pick a language under **Speak by voice**. (#35)
+- **Notifications are understood by the model.** Payments, parcels and replies are read from notification text by your model instead of fixed patterns, which works across apps and languages and checks amounts against the original text. It runs in the background and is on by default. A first-run notice explains it, and **Analyze notification content** in Settings turns it off. Requests appear in Usage as Notification analysis.
+- The routine card keeps the place line and map inside their space, the trash card no longer crashes on a very large count, and the notification digest uses the singular for one item.
+
 ## [0.0.7] - 2026-11-15
 
 - **Any OpenAI-compatible server.** A new "Other" provider takes a base URL and an API key. Presets fill in OpenRouter, Groq, Mistral, Together, DeepSeek, Ollama and LM Studio, or you can enter any server that speaks Chat Completions, then pick a model from the list it offers. A local server may need no key. The model must support tool calling. Plain http works only for a server on the phone itself; anything else needs https.

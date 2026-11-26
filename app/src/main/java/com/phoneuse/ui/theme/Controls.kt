@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -200,6 +201,7 @@ fun PuButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     fontSize: Int = 15,
+    maxLines: Int = 1,
 ) {
     val shape = RoundedCornerShape(radius)
     val (bg, fg) = when (kind) {
@@ -209,7 +211,7 @@ fun PuButton(
     }
     Box(
         modifier
-            .height(height)
+            .then(if (maxLines == 1) Modifier.height(height) else Modifier.heightIn(min = height))
             .clip(shape)
             .background(if (enabled) bg else bg.copy(alpha = 0.4f))
             .then(if (kind == ButtonKind.OUTLINE) Modifier.border(1.dp, pu.inputBorder, shape) else Modifier)
@@ -220,7 +222,7 @@ fun PuButton(
         if (loading) {
             CircularProgressIndicator(Modifier.size(20.dp), color = fg, strokeWidth = 2.dp)
         } else {
-            Text(text, fontSize = fontSize.sp, fontWeight = FontWeight.Medium, color = fg, textAlign = TextAlign.Center, maxLines = 1)
+            Text(text, fontSize = fontSize.sp, fontWeight = FontWeight.Medium, color = fg, textAlign = TextAlign.Center, maxLines = maxLines)
         }
     }
 }

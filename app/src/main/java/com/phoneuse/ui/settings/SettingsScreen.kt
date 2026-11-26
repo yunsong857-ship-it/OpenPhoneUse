@@ -2,6 +2,7 @@ package com.phoneuse.ui.settings
 
 import com.phoneuse.understand.UnderstandScheduler
 import com.phoneuse.understand.UnderstandText
+import com.phoneuse.i18n.Lang
 import com.phoneuse.i18n.tr
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -319,6 +320,28 @@ fun SettingsScreen(
             Section(tr("Display and voice", "화면과 음성"))
             Group {
                 ValueRow(tr("Theme", "테마"), THEME_OPTIONS.first { it.first == theme }.second, onClick = { themeDialog = true }, first = true)
+                ValueRow(
+                    tr("App language", "앱 언어"),
+                    when {
+                        Lang.simplifiedChinese -> "简体中文"
+                        Lang.korean -> "한국어"
+                        else -> "English"
+                    },
+                    onClick = {
+                        if (android.os.Build.VERSION.SDK_INT >= 33) {
+                            val languageIntent = Intent("android.settings.APP_LOCALE_SETTINGS").apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            try {
+                                context.startActivity(languageIntent)
+                            } catch (_: ActivityNotFoundException) {
+                                Toast.makeText(context, tr("Couldn't open app language settings", "앱 언어 설정을 열 수 없어요"), Toast.LENGTH_LONG).show()
+                            }
+                        } else {
+                            Toast.makeText(context, tr("App language settings require Android 13 or later", "앱 언어 설정은 Android 13 이상에서 지원해요"), Toast.LENGTH_LONG).show()
+                        }
+                    },
+                )
                 ValueRow(tr("Text size", "글자 크기"), label(FONT_LABELS, fontSize), onClick = { choice = Choice.FONT })
                 ValueRow(tr("On the unfolded screen", "펼친 화면에서"), label(UNFOLDED_LABELS, unfolded), onClick = { choice = Choice.UNFOLDED })
                 ValueRow(tr("Speak by voice", "음성으로 말하기"), label(VOICE_LABELS, voice), onClick = { choice = Choice.VOICE })

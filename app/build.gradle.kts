@@ -15,8 +15,8 @@ android {
         applicationId = "com.phoneuse"
         minSdk = 30
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.0.7"
+        versionCode = 8
+        versionName = "0.0.8"
     }
 
     // The release key stays outside the repository: in ~/.openphoneuse/keystore.properties on the maintainer's

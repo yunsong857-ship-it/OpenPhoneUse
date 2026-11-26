@@ -10,6 +10,7 @@ import com.phoneuse.agent.ScreenInterruptedException
 import com.phoneuse.agent.ScreenMark
 import com.phoneuse.agent.ServiceUnavailableException
 import com.phoneuse.agent.SettleKind
+import com.phoneuse.agent.TwoFingerGesture
 import com.phoneuse.agent.UserGate
 import com.phoneuse.assist.VoiceBridge
 import com.phoneuse.overlay.AgentPhase
@@ -21,6 +22,7 @@ import com.phoneuse.screen.ScreenSnapshot
 import com.phoneuse.screen.UiNode
 import com.phoneuse.service.PhoneUseAccessibilityService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
@@ -29,7 +31,7 @@ import kotlinx.coroutines.withContext
  * The overlay side of one run. Nothing is shown and no touches are blocked until [engage]; once engaged,
  * [release] always gives touches back and hides the overlay, whatever happened.
  */
-internal class OverlaySession(private val onStop: () -> Unit, private val onSteer: (String) -> Unit) {
+internal class OverlaySession(private val onStop: () -> Unit, private val onSteer: (String) -> Boolean) {
     @Volatile
     private var overlay: OverlayManager? = null
 
@@ -58,7 +60,7 @@ internal class OverlaySession(private val onStop: () -> Unit, private val onStee
      * as off, so the app asks the user to switch it on again; nothing in the app can rebind it (switching our
      * own component off and on makes Android drop the service from the enabled list).
      */
-    suspend fun engage(firstLine: String): Boolean = withContext(Dispatchers.Main.immediate) {
+    suspend fun engage(conversationId: Long, firstLine: String): Boolean = withContext(Dispatchers.Main.immediate) {
         if (overlay != null) return@withContext true
         for (attempt in 0 until ENGAGE_TRIES) {
             val service = awaitLiveService(if (attempt == 0) 0 else ENGAGE_WAIT_MS)
@@ -68,14 +70,14 @@ internal class OverlaySession(private val onStop: () -> Unit, private val onStee
             }
             // A retry builds the overlay anew on the instance connected now.
             val manager = service.overlay?.takeUnless { it.isClosed || attempt > 0 } ?: service.rebuildOverlay()
-            if (tryShow(manager, firstLine, attempt)) return@withContext true
+            if (tryShow(manager, conversationId, firstLine, attempt)) return@withContext true
             delay(ENGAGE_RETRY_MS)
         }
         PhoneUseAccessibilityService.instance?.let { if (!it.isConnectionLive()) it.reportConnectionLost() }
         false
     }
 
-    private fun tryShow(manager: OverlayManager, firstLine: String, attempt: Int): Boolean {
+    private fun tryShow(manager: OverlayManager, conversationId: Long, firstLine: String, attempt: Int): Boolean {
         overlay = manager // recorded first so release() undoes even a half-finished engage
         overlayGate = OverlayUserGate(manager)
         manager.onStop = onStop
@@ -83,7 +85,7 @@ internal class OverlaySession(private val onStop: () -> Unit, private val onStee
         manager.state.value = AgentUiState(AgentPhase.THINKING, listOf(firstLine), null)
         manager.setBlocking(true)
         return try {
-            manager.show()
+            manager.show(conversationId)
             true
         } catch (e: RuntimeException) {
             Log.w("PhoneUse", "overlay refused (attempt ${attempt + 1})", e)
@@ -115,12 +117,18 @@ internal class OverlaySession(private val onStop: () -> Unit, private val onStee
      * Releases touches right away, leaves the last line up for [lingerMs], then hides the overlay.
      * Returns the last line shown, or null when the overlay was never engaged. Never throws.
      */
-    suspend fun release(lingerMs: Long): String? {
+    suspend fun release(lingerMs: Long, runJob: Job): String? {
         val manager = overlay ?: return null
         val last = manager.state.value.lines.lastOrNull()
         releaseTouches()
         if (lingerMs > 0) delay(lingerMs)
-        releaseNow()
+        withContext(Dispatchers.Main.immediate) {
+            try {
+                manager.finishInput(runJob)
+            } finally {
+                releaseNow()
+            }
+        }
         return last
     }
 
@@ -136,7 +144,7 @@ internal class OverlaySession(private val onStop: () -> Unit, private val onStee
         guarded("setBlocking") { manager.setBlocking(false) }
         guarded("hide") { manager.hide() }
         manager.onStop = {}
-        manager.onSteer = {}
+        manager.onSteer = { false }
         overlay = null
         overlayGate = null
     }
@@ -183,6 +191,7 @@ internal object LiveDeviceController : DeviceController {
     override fun interruptions(): Int = VoiceBridge.sessions
     override suspend fun snapshot(): ScreenSnapshot = ready().snapshot()
     override suspend fun screenshot(): ByteArray? = ready().screenshot()
+    override suspend fun canCaptureScreen(): Boolean = ready().canCaptureScreen()
     override suspend fun markedScreenshot(marks: List<ScreenMark>): ByteArray? = ready().markedScreenshot(marks)
     override suspend fun tap(x: Int, y: Int): Boolean = readyToAct().tap(x, y)
     override suspend fun longPress(x: Int, y: Int): Boolean = readyToAct().longPress(x, y)
@@ -190,6 +199,10 @@ internal object LiveDeviceController : DeviceController {
         readyToAct().swipe(x1, y1, x2, y2, durationMs)
     override suspend fun pinch(x: Int, y: Int, zoomIn: Boolean, durationMs: Long): Boolean =
         readyToAct().pinch(x, y, zoomIn, durationMs)
+    override fun planRotate(x: Int, y: Int, degrees: Int, spreadPx: Int?) = device().planRotate(x, y, degrees, spreadPx)
+    override fun planTwoFingerSwipe(x1: Int, y1: Int, x2: Int, y2: Int) = device().planTwoFingerSwipe(x1, y1, x2, y2)
+    override suspend fun executeTwoFinger(plan: TwoFingerGesture, durationMs: Long) =
+        readyToAct().executeTwoFinger(plan, durationMs)
     override suspend fun setText(node: UiNode, text: String): Boolean = readyToAct().setText(node, text)
     override suspend fun imeEnter(node: UiNode): Boolean = readyToAct().imeEnter(node)
     override suspend fun scroll(node: UiNode?, direction: String): Boolean = readyToAct().scroll(node, direction)

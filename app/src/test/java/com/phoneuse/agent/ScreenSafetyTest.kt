@@ -89,6 +89,43 @@ class ScreenSafetyTest {
         assertTrue(r.output, r.output.startsWith("STOPPED: the user used voice input"))
     }
 
+    @Test fun voiceWhileCheckingTwoFingerTargetsStopsDispatch() = runTest {
+        val (dev, _, ex) = setup(screen)
+        val seen = ex.observe().screen!!
+        dev.inner.snapshotHook = { snapshot -> dev.sessions++; snapshot }
+        val result = ex.execute(call("rotate", """{"x":540,"y":900,"direction":"clockwise","degrees":45}"""), seen)
+        assertTrue(result.output, result.output.startsWith("STOPPED: the user used voice input"))
+        assertTrue(dev.inner.gestures.isEmpty())
+    }
+
+    @Test fun aBatchedGestureRejectsTargetWithoutPollingForALabel() = runTest {
+        val (dev, _, ex) = setup(screen)
+        val seen = ex.observe().screen!!
+        val readsBefore = dev.inner.calls.count { it == "snapshot()" }
+        val result = ex.execute(call("batch", """{"actions":[{"tool":"rotate","args":{"target":"Canvas","x":540,"y":900,"direction":"clockwise","degrees":45}}]}"""), seen)
+        assertTrue(result.output, result.output.contains("coordinates only"))
+        assertEquals(readsBefore, dev.inner.calls.count { it == "snapshot()" })
+        assertTrue(dev.inner.gestures.isEmpty())
+    }
+
+    @Test fun voiceDuringTheCaptureCheckStopsThePendingAction() = runTest {
+        val changed = screen.copy(roots = screen.roots + button("C", 300))
+        val inner = FakeDeviceController(listOf(screen, changed))
+        val device = object : DeviceController by inner {
+            var sessions = 0
+            override fun interruptions() = sessions
+            override suspend fun canCaptureScreen(): Boolean {
+                sessions++
+                return true
+            }
+        }
+        val executor = ToolExecutor(device, FakeUserGate())
+        val seen = executor.observe().screen
+        val result = executor.execute(call("tap", """{"index":1}"""), seen)
+        assertTrue(result.output, result.output.startsWith("STOPPED: the user used voice input"))
+        assertTrue(inner.calls.none { it.startsWith("tap(") })
+    }
+
     @Test fun batchStopsAtTheVoicePause() = runTest {
         val (dev, _, ex) = setup(screen)
         val seen = ex.observe().screen!!

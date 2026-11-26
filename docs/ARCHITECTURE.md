@@ -38,8 +38,9 @@ This note explains how a request becomes taps on the phone. Paths below are rela
    A new module is one file plus one line in `ToolRegistry`; see `DeviceInfoModule` and
    [CONTRIBUTING.md](../CONTRIBUTING.md#add-a-tool-module-in-5-steps).
 4. **Device.** `service/AccessibilityDeviceController` does the work on the phone:
-   - It carries out gestures with `dispatchGesture`. Swipes are kept out of the system gesture strips by
-     `service/EdgeGuard`.
+   - It carries out gestures with `dispatchGesture`. Pinch, rotation and two-finger swipe use two simultaneous
+     strokes. `service/EdgeGuard` keeps their starting points out of the system gesture strips. Rotation
+     accepts optional finger spacing in pixels and reports the fitted pivot and both starting positions.
    - It runs global actions, text entry and scrolling.
    - It reads the screen through `service/AccessibilityTreeReader`.
 
@@ -65,8 +66,10 @@ app: com.coupang.mobile | screen 1080x2400 | list continues below (more-below): 
 `AgentLoop` adds it to the input (`addImage`). Each element you can act on is outlined and tagged with its list
 number. `agent/MarkLayout` places the tags (pure geometry, tested on the JVM; at most 120 tags per image) and
 `service/MarkPainter` draws them, so the model reads layouts, icons, charts and games from the picture and still acts
-by number. There is no screenshot when the setting that sends text only is on, or on a protected screen where the
-capture is blocked; the text list is always sent. `screenshot` remains a tool for a fresh look.
+by number. The capture check uses Android's result for the whole display. Text-only mode checks capture before
+sending the element list. A failed check in a previously visible app withholds its contents and asks the model
+to call `get_screen`. The protection notice appears after a failed retry on the same app, 400 ms after the first
+attempt. `screenshot` remains a tool for a fresh look.
 
 ## Speed
 
@@ -77,9 +80,14 @@ capture is blocked; the text list is always sent. `screenshot` remains a tool fo
   - a 1.5 s cap.
 - **Batches.** `batch` runs several steps in one model call.
   - A step can name its element by `index`, which refers to the screen the model saw.
-  - A step can instead name it by `target`, a visible label that is waited for for up to 3 s on a new screen.
+  - A step can instead name it by `target`. The agent waits 150 ms between tree reads, for up to 3 s of waiting,
+    and checks capture when the label appears. Tree reads and the final capture add to the elapsed time.
+  - Rotation and two-finger swipe use coordinates from the initial screen and can only run as the first step.
   - Either way, one model call can go through several screens.
 - **Live re-check.** Before every act, the live screen is read again and the target element is found there.
+  - An identical, complete tree in the same voice session can reuse its last successful capture check before the action,
+    except for the batch step right after a two-finger gesture.
+    Returning a screen to the model or resuming after confirmation requires a fresh capture check.
   - If the element is gone, the executor returns `STOPPED` with the fresh screen.
   - It never taps something that moved.
 - **Speculation (`agent/ScreenWatch`, `AgentLoop`).** The next model call starts as soon as the screen looks
@@ -183,14 +191,16 @@ opens a place (`Taps` in `notify/NotifyRoutes`), through a signed intent (`Launc
 
 - `risk/RiskGuard` classifies what an action does from keywords on the element and its screen: MONEY, SECURITY,
   DELETE, SEND or CHANGE. A match is *strong* (high-precision words such as pay, transfer, delete account) or weak.
-- **Inline judgment.** There is no separate risk-judge model call. `tap`, `long_press`, `type_text` and `swipe` carry
+- **Inline judgment.** There is no separate risk-judge model call. `tap`, `long_press`, `type_text`, `swipe`, `rotate` and `two_finger_swipe` carry
   `risk`, `effect` and `delete_scope` arguments that the acting model fills in the same call, from the screen and
   screenshot (`agent/RiskJudge`: `PROPS`, `PROMPT`, `fromArgs`). Leaving `risk` out declares the step harmless.
   Settings "AI safety check" switches it off, which leaves the keywords alone.
 - **Combine.** `RiskCombine` merges the keyword match with the declaration. A strong keyword always stands and the
   declaration can only raise it. A weak keyword is the declaration's call: it can clear it or replace it with
   another category. With no keyword, the declaration's category counts, except CHANGE, which does not ask on its own.
-- `agent/PointRisk` checks coordinate taps and swipes against the live element.
+- `agent/PointRisk` checks coordinate taps and swipes against the live element. Rotation and two-finger swipe
+  check both fitted starting points before either touches the screen. A delete gesture requires one confirmation
+  covering both contacts, even when the request names a single item.
 - The confirm gate (`agent/ConfirmPolicyGate`) shows a card for every risky action.
   - Money and security actions are always confirmed.
   - A delete is confirmed unless the model declares `delete_scope=requested_one` (exactly the single, recoverable
