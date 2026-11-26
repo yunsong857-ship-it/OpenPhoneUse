@@ -84,7 +84,7 @@ internal object ZhCN {
         "Permission settings" to "权限设置", "Change time" to "更改时间",
         "Accessibility service" to "无障碍服务",
         "App language settings require Android 13 or later" to "应用语言设置需要 Android 13 或更高版本",
-        "Couldn\\'t open app language settings" to "无法打开应用语言设置", "Reads the screen and taps for you" to "读取屏幕内容并代替你点击",
+        "Couldn't open app language settings" to "无法打开应用语言设置", "Reads the screen and taps for you" to "读取屏幕内容并代替你点击",
         "All files access" to "所有文件访问权限", "Tidies your Downloads and Photos folders" to "整理下载和照片文件夹",
         "Notifications" to "通知", "Tells you the result even when the app is closed" to "即使应用关闭，也会通知你任务结果",
         "Notification access" to "通知读取权限",
