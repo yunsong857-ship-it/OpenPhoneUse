@@ -296,6 +296,24 @@ internal object ChineseText {
         "Refresh" to "刷新",
         "Select all" to "全选",
         "Clear" to "清除",
+        " API key" to " API 密钥",
+        "About 1.5x faster · uses your plan or credits faster" to "速度约提升 1.5 倍 · 但会更快消耗套餐额度或余额",
+        "Lower is faster. If complex tasks keep going astray, turn it up." to "数值越低速度越快。如果复杂任务经常出错，可以调高推理强度。",
+        "I want to change this event" to "我想修改这个日程",
+        "Find a free time that does not overlap this event" to "查找与这个日程不冲突的空闲时间",
+        "I want to edit the draft" to "我想编辑这份草稿",
+        "Send this draft as an email" to "将这份草稿作为邮件发送",
+        "Save this draft as a note" to "将这份草稿保存为笔记",
+        "Send this draft as a text" to "将这份草稿作为短信发送",
+        "Handle it" to "处理这件事",
+        "Ask them to leave this parcel at the door" to "请对方把这个包裹放在门口",
+        "Tell me when this parcel arrives" to "包裹送达时通知我",
+        "When charging starts" to "开始充电时",
+        "When a Bluetooth device connects" to "蓝牙设备连接时",
+        "When earphones connect" to "耳机连接时",
+        "When Wi-Fi connects" to "连接 Wi-Fi 时",
+        "Once every" to "每隔",
+        "Connected" to "已连接",
     )
 
     fun translate(english: String): String? {
@@ -322,6 +340,43 @@ internal object ChineseText {
         Regex("""^Last run (.*)$""").matchEntire(english)?.let { return "上次运行：" + it.groupValues[1] }
         Regex("""^Map search · (.*)$""").matchEntire(english)?.let { return "地图搜索 · " + it.groupValues[1] }
         Regex("""^Open (.*)$""").matchEntire(english)?.let { return "打开 " + it.groupValues[1] }
+        Regex("""^Delete (\d+) chats\?$""").matchEntire(english)?.let { return "删除 " + it.groupValues[1] + " 条对话？" }
+        Regex("""^Shortening the retention to ‘(.*)’ deletes (\d+) older chats right away\. This can't be undone\.$""").matchEntire(english)?.let {
+            return "将对话保留期限缩短为“" + it.groupValues[1] + "”后，会立即删除较早的 " + it.groupValues[2] + " 条对话。此操作无法撤销。"
+        }
+        Regex("""^Model ID \(e\.g\. (.*)\)$""").matchEntire(english)?.let { return "模型 ID（例如 " + it.groupValues[1] + "）" }
+        Regex("""^Remind me to get ready to leave at (.*)$""").matchEntire(english)?.let { return "提醒我在 " + it.groupValues[1] + " 准备出发" }
+        Regex("""^Write a text telling them my arrival time for this route(.*)$""").matchEntire(english)?.let { return "发送短信告知对方这条路线的预计到达时间" + it.groupValues[1] }
+        Regex("""^Write a message saying I can't attend conflicting event (\d+)$""").matchEntire(english)?.let { return "发送消息，说明我无法参加第 " + it.groupValues[1] + " 个冲突日程" }
+        Regex("""^Make an album from photos (.*)$""").matchEntire(english)?.let { return "用照片 " + it.groupValues[1] + " 创建相册" }
+        Regex("""^Rewrite the draft: (.*)$""").matchEntire(english)?.let { return "按“" + it.groupValues[1] + "”改写草稿" }
+        Regex("""^Summary '(.*)' item (\d+): (.*)$""").matchEntire(english)?.let { return "摘要“" + it.groupValues[1] + "”中的第 " + it.groupValues[2] + " 项：" + it.groupValues[3] }
+        Regex("""^I allowed the (.*) permission\. Please continue what you were doing$""").matchEntire(english)?.let { return "我已授予" + it.groupValues[1] + "权限，请继续刚才的操作" }
+        Regex("""^Tell me more about search result (\d+)$""").matchEntire(english)?.let { return "详细介绍第 " + it.groupValues[1] + " 条搜索结果" }
+        Regex("""^When I arrive at (.*)$""").matchEntire(english)?.let { return "到达 " + it.groupValues[1] + " 时" }
+        Regex("""^When I leave (.*)$""").matchEntire(english)?.let { return "离开 " + it.groupValues[1] + " 时" }
+        Regex("""^(.*) notification · '(.*)'$""").matchEntire(english)?.let { return it.groupValues[1] + " 通知 · ‘" + it.groupValues[2] + "’" }
+        Regex("""^When a (.*) notification arrives$""").matchEntire(english)?.let { return "收到 " + it.groupValues[1] + " 通知时" }
+        Regex("""^When a '(.*)' notification arrives$""").matchEntire(english)?.let { return "收到“" + it.groupValues[1] + "”通知时" }
+        Regex("""^When '(.*)' connects$""").matchEntire(english)?.let { return "连接“" + it.groupValues[1] + "”时" }
+        Regex("""^When Wi-Fi '(.*)' connects$""").matchEntire(english)?.let { return "连接 Wi-Fi“" + it.groupValues[1] + "”时" }
+        Regex("""^(\d+) min$""").matchEntire(english)?.let { return it.groupValues[1] + " 分钟" }
+        Regex("""^(\d+) h (\d+) min$""").matchEntire(english)?.let { return it.groupValues[1] + " 小时 " + it.groupValues[2] + " 分钟" }
+        Regex("""^(.*) before an event with a location$""").matchEntire(english)?.let {
+            val duration = it.groupValues[1].replace(" min", " 分钟").replace(" h", " 小时")
+            return "有地点的日程开始前 " + duration
+        }
+        Regex("""^Once every (.*)$""").matchEntire(english)?.let {
+            val duration = it.groupValues[1].replace(" min", " 分钟").replace(" h", " 小时")
+            return "每隔 " + duration
+        }
+        Regex("""^Notify: (.*)$""").matchEntire(english)?.let { return "通知：" + it.groupValues[1] }
+        Regex("""^No notifications in the last (\d+) hours\.$""").matchEntire(english)?.let { return "过去 " + it.groupValues[1] + " 小时内没有收到通知。" }
+        Regex("""^No memories match ‘(.*)’\.$""").matchEntire(english)?.let { return "没有与“" + it.groupValues[1] + "”匹配的记忆。" }
+        Regex("""^Couldn't sign in\. You can connect with a token instead \((.*)\)$""").matchEntire(english)?.let { return "登录失败。你也可以改用令牌连接（" + it.groupValues[1] + "）" }
+        Regex("""^Enable (.*)$""").matchEntire(english)?.let { return "启用 " + it.groupValues[1] }
+        Regex("""^(.*) permissions$""").matchEntire(english)?.let { return it.groupValues[1] + " 权限" }
+        Regex("""^(.*) token$""").matchEntire(english)?.let { return it.groupValues[1] + " 令牌" }
         return null
     }
 }
