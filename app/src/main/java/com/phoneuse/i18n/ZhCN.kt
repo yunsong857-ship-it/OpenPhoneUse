@@ -66,7 +66,7 @@ internal object ZhCN {
         "Use a light model for routines" to "让自动例行任务使用轻量模型",
 
         // Settings and permissions
-        "Settings" to "设置", "Theme" to "主题", "Follow system" to "跟随系统",
+        "Settings" to "设置", "App language" to "应用语言", "Theme" to "主题", "Follow system" to "跟随系统",
         "Light" to "浅色", "Dark" to "深色", "Text size" to "文字大小",
         "Display and voice" to "显示与语音", "Speak by voice" to "语音输入",
         "Read answers aloud" to "朗读回答", "Reads the answer when a task finishes" to "任务完成后朗读回答",
@@ -82,7 +82,9 @@ internal object ZhCN {
         "Location must be set to Allow all the time" to "位置权限必须设置为“始终允许”",
         "Leave-time alerts and the briefing's weather use your location when the app isn't open. It isn't allowed right now, so those two stay quiet." to "离开时间提醒和早间简报中的天气信息需要在应用未打开时使用你的位置。目前尚未获得此权限，因此这两项功能不会提醒。",
         "Permission settings" to "权限设置", "Change time" to "更改时间",
-        "Accessibility service" to "无障碍服务", "Reads the screen and taps for you" to "读取屏幕内容并代替你点击",
+        "Accessibility service" to "无障碍服务",
+        "App language settings require Android 13 or later" to "应用语言设置需要 Android 13 或更高版本",
+        "Couldn\\'t open app language settings" to "无法打开应用语言设置", "Reads the screen and taps for you" to "读取屏幕内容并代替你点击",
         "All files access" to "所有文件访问权限", "Tidies your Downloads and Photos folders" to "整理下载和照片文件夹",
         "Notifications" to "通知", "Tells you the result even when the app is closed" to "即使应用关闭，也会通知你任务结果",
         "Notification access" to "通知读取权限",
