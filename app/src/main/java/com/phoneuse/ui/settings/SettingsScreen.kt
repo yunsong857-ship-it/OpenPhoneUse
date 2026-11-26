@@ -2,7 +2,15 @@ package com.phoneuse.ui.settings
 
 import com.phoneuse.understand.UnderstandScheduler
 import com.phoneuse.understand.UnderstandText
+import com.phoneuse.i18n.AppLanguage
+import com.phoneuse.i18n.Lang
 import com.phoneuse.i18n.tr
+import android.app.Activity
+import android.app.LocaleManager
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.Build
+import android.os.LocaleList
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -106,6 +114,22 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
+private fun applyAppLanguage(context: Context, language: AppLanguage) {
+    Lang.select(language)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val locales = language.localeTag?.let(LocaleList::forLanguageTags) ?: LocaleList.getEmptyLocaleList()
+        context.applicationContext.getSystemService(LocaleManager::class.java)?.applicationLocales = locales
+    } else {
+        context.findActivity()?.recreate()
+    }
+}
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 /** Who the app talks to the model as. */
 data class AccountInfo(
     val mode: AuthMode = AuthMode.CHATGPT,
@@ -202,6 +226,7 @@ fun SettingsScreen(
     val voice by settings.voiceLanguage.collectAsState(SettingsStore.DEFAULT_VOICE_LANGUAGE)
     val readAloud by settings.readAloud.collectAsState(false)
     val screenContent by settings.screenContent.collectAsState(ScreenContent.ALL)
+    val appLanguage by settings.appLanguage.collectAsState(AppLanguage.SYSTEM)
 
     if (permissionsOpen) {
         BackHandler { permissionsOpen = false }
@@ -318,7 +343,8 @@ fun SettingsScreen(
 
             Section(tr("Display and voice", "화면과 음성"))
             Group {
-                ValueRow(tr("Theme", "테마"), THEME_OPTIONS.first { it.first == theme }.second, onClick = { themeDialog = true }, first = true)
+                ValueRow(tr("App language", "앱 언어"), label(APP_LANGUAGE_LABELS, appLanguage), onClick = { choice = Choice.LANGUAGE }, first = true)
+                ValueRow(tr("Theme", "테마"), THEME_OPTIONS.first { it.first == theme }.second, onClick = { themeDialog = true })
                 ValueRow(tr("Text size", "글자 크기"), label(FONT_LABELS, fontSize), onClick = { choice = Choice.FONT })
                 ValueRow(tr("On the unfolded screen", "펼친 화면에서"), label(UNFOLDED_LABELS, unfolded), onClick = { choice = Choice.UNFOLDED })
                 ValueRow(tr("Speak by voice", "음성으로 말하기"), label(VOICE_LABELS, voice), onClick = { choice = Choice.VOICE })
@@ -419,6 +445,15 @@ fun SettingsScreen(
     choice?.let { open ->
         val close = { choice = null }
         when (open) {
+            Choice.LANGUAGE -> ChoiceDialog(
+                tr("App language", "앱 언어"), APP_LANGUAGE_LABELS, appLanguage, close,
+                note = tr("Choose how OpenPhoneUse displays text. Follow device uses your phone's language.", "OpenPhoneUse에 표시할 언어를 선택하세요. 기기 언어를 따르면 휴대전화의 언어를 사용합니다."),
+            ) { v ->
+                scope.launch {
+                    settings.setAppLanguage(v)
+                    applyAppLanguage(context, v)
+                }
+            }
             Choice.RETENTION -> ChoiceDialog(
                 tr("Keep chat history", "대화 기록 보관"), RETENTION_LABELS, retention, close,
                 note = tr("Chats older than this, counted from the last message, are cleared every day. Deleted chats can't be restored.", "마지막 대화 뒤로 이 기간이 지난 대화는 매일 정리돼요. 지운 대화는 되돌릴 수 없어요."),

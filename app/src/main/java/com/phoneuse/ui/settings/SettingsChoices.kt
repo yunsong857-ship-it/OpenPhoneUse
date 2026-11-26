@@ -1,5 +1,6 @@
 package com.phoneuse.ui.settings
 
+import com.phoneuse.i18n.AppLanguage
 import com.phoneuse.i18n.tr
 import com.phoneuse.app.AssistAction
 import com.phoneuse.app.ControlSpeed
@@ -10,7 +11,14 @@ import com.phoneuse.app.UnfoldedLayout
 import com.phoneuse.app.VoiceLanguage
 
 /** The settings that open a choice dialog. */
-enum class Choice { RETENTION, ASSIST, SPEED, SUMMARY, QUIET, FONT, UNFOLDED, VOICE, SCREEN }
+enum class Choice { LANGUAGE, RETENTION, ASSIST, SPEED, SUMMARY, QUIET, FONT, UNFOLDED, VOICE, SCREEN }
+
+val APP_LANGUAGE_LABELS get() = listOf(
+    AppLanguage.SYSTEM to tr("Follow device", "기기 언어"),
+    AppLanguage.ENGLISH to "English",
+    AppLanguage.KOREAN to "한국어",
+    AppLanguage.CHINESE_SIMPLIFIED to "简体中文",
+)
 
 val RETENTION_LABELS get() = listOf(30 to tr("30 days", "30일"), 90 to tr("90 days", "90일"), 365 to tr("1 year", "1년"), 0 to tr("Forever", "무기한"))
 val ASSIST_LABELS get() = listOf(AssistAction.SUGGEST to tr("Ideas for this screen", "이 화면으로 할 일"), AssistAction.TYPE to tr("Talk right away", "바로 말하기"))

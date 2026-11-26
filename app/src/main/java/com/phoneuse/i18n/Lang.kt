@@ -1,33 +1,91 @@
 package com.phoneuse.i18n
 
 import android.os.LocaleList
+import androidx.compose.runtime.mutableStateOf
 import java.util.Locale
 
-/**
- * The app's language: English by default, Korean when the device language is Korean.
- *
- * User-facing text is written in place as [tr]("English", "한국어"), so both languages stay next to each other
- * and plain JVM code (routines, nudges, cards) can be localized without a Context. Unit tests run in Korean
- * (`user.language=ko` in app/build.gradle.kts), so existing assertions keep their Korean text.
- */
+/** A persisted per-app language. SYSTEM follows the phone's current language. */
+enum class AppLanguage(val localeTag: String?) {
+    SYSTEM(null),
+    ENGLISH("en"),
+    KOREAN("ko"),
+    CHINESE_SIMPLIFIED("zh-CN"),
+}
+
+/** App language used by all text produced through [tr], including text created outside Compose. */
 object Lang {
     @Volatile
-    var korean: Boolean = isKorean(Locale.getDefault())
+    private var systemLocale: Locale = Locale.getDefault()
 
-    /** Follows [locales]' first language; called at startup and when the configuration changes. */
+    @Volatile
+    var selection: AppLanguage = AppLanguage.SYSTEM
+        private set
+
+    // Snapshot state makes every Compose surface that calls tr() redraw when the language changes.
+    private val koreanState = mutableStateOf(isKorean(Locale.getDefault()))
+    private val chineseState = mutableStateOf(isChinese(Locale.getDefault()))
+
+    /** Kept writable for existing tests and legacy callers that force the English/Korean branch. */
+    var korean: Boolean
+        get() = koreanState.value
+        set(value) {
+            koreanState.value = value
+            // Keep the legacy test/configuration hook coherent with the new third language.
+            chineseState.value = false
+        }
+
+    var chinese: Boolean
+        get() = chineseState.value
+        private set(value) {
+            chineseState.value = value
+        }
+
+    /** Follow the effective app locale; called at startup and when Android configuration changes. */
     fun update(locales: LocaleList) {
-        val locale = locales.takeIf { !it.isEmpty }?.get(0) ?: Locale.getDefault()
+        systemLocale = locales.takeIf { !it.isEmpty }?.get(0) ?: Locale.getDefault()
+        applySelection()
+    }
+
+    /** Apply a saved or newly selected language immediately. */
+    fun select(language: AppLanguage) {
+        selection = language
+        applySelection()
+    }
+
+    private fun applySelection() {
+        val locale = when (selection) {
+            AppLanguage.SYSTEM -> systemLocale
+            AppLanguage.ENGLISH -> Locale.ENGLISH
+            AppLanguage.KOREAN -> Locale.KOREAN
+            AppLanguage.CHINESE_SIMPLIFIED -> Locale.forLanguageTag("zh-CN")
+        }
         korean = isKorean(locale)
+        chinese = isChinese(locale)
     }
 
     fun isKorean(locale: Locale): Boolean = locale.language == "ko"
+    fun isChinese(locale: Locale): Boolean = locale.language == "zh"
 
-    /** The language's English name, for instructions to the model. */
-    val name: String get() = if (korean) "Korean" else "English"
+    /** Language name used in instructions sent to the model. */
+    val name: String
+        get() = when {
+            chinese -> "Simplified Chinese"
+            korean -> "Korean"
+            else -> "English"
+        }
 
-    /** The language tag the model is told to answer in when the user's own words do not settle it. */
-    val tag: String get() = if (korean) "ko" else "en"
+    /** Language tag sent to the model when the user's own words do not settle the response language. */
+    val tag: String
+        get() = when {
+            chinese -> "zh-CN"
+            korean -> "ko"
+            else -> "en"
+        }
 }
 
-/** [en], or [ko] when the app runs in Korean. */
-fun tr(en: String, ko: String): String = if (Lang.korean) ko else en
+/** English and Korean stay inline; Chinese uses the app's Simplified Chinese text catalogue. */
+fun tr(en: String, ko: String): String = when {
+    Lang.chinese -> ChineseText.translate(en) ?: en
+    Lang.korean -> ko
+    else -> en
+}

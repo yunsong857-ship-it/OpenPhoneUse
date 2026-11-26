@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.phoneuse.agent.AnswerLength
 import com.phoneuse.agent.Personalization
+import com.phoneuse.i18n.AppLanguage
 import com.phoneuse.security.KeystoreSecretBox
 import com.phoneuse.security.SecretBox
 import kotlinx.coroutines.Dispatchers
@@ -148,6 +149,9 @@ class SettingsStore internal constructor(
     val themeMode: Flow<ThemeMode> = store.data.map { prefs ->
         prefs[THEME]?.let { s -> ThemeMode.entries.firstOrNull { it.name == s } } ?: ThemeMode.SYSTEM
     }
+
+    /** The language shown by this app; SYSTEM follows the device locale. */
+    val appLanguage: Flow<AppLanguage> = store.data.map { enumOf(it[APP_LANGUAGE], AppLanguage.SYSTEM) }
 
     /** Settings "대화 기록 보관": days to keep a conversation after its last message; 0 = forever (the default). */
     val retentionDays: Flow<Int> = store.data.map { prefs -> prefs[RETENTION]?.takeIf { it in RETENTION_OPTIONS } ?: 0 }
@@ -348,6 +352,10 @@ class SettingsStore internal constructor(
         }
     }
 
+    suspend fun setAppLanguage(v: AppLanguage) {
+        store.edit { it[APP_LANGUAGE] = v.name }
+    }
+
     suspend fun setThemeMode(v: ThemeMode) {
         store.edit { it[THEME] = v.name }
     }
@@ -446,6 +454,7 @@ class SettingsStore internal constructor(
         private val FAST_MODE = booleanPreferencesKey("fast_mode")
         private val REASONING = stringPreferencesKey("reasoning_effort")
         private val THEME = stringPreferencesKey("theme_mode")
+        private val APP_LANGUAGE = stringPreferencesKey("app_language")
         private val WEB_SEARCH = booleanPreferencesKey("web_search")
         private val ROUTINE_LIGHT = booleanPreferencesKey("routine_light_model")
         private val HELPER = booleanPreferencesKey("helper_model")
