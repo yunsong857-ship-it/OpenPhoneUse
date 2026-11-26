@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">OpenPhoneUse 会读取屏幕并代你操作应用。</string>
+    <string name="widget_ask_label">任务输入</string>
+    <string name="widget_ask_description">输入或说出任务；快捷建议会提示你现在可以询问什么</string>
+    <string name="widget_ask_preview">问我任何问题</string>
+    <string name="widget_live_label">正在执行的任务</string>
+    <string name="widget_live_description">逐步查看当前任务，并可直接从桌面停止</string>
+    <string name="widget_live_preview">正在开启省电模式 · 第 2 步</string>
+    <string name="widget_brief_label">今日简报</string>
+    <string name="widget_brief_description">由 AI 总结今天剩余安排，并在后台更新</string>
+    <string name="widget_brief_preview">接下来：15:00 团队会议，之后还有 1 项。闹钟 07:00。</string>
+    <string name="widget_actions_label">快捷操作</string>
+    <string name="widget_actions_description">一键执行已保存的提示词</string>
+    <string name="widget_actions_preview">静音 1 小时 · 导航回家</string>
+    <string name="widget_routines_label">自动任务</string>
+    <string name="widget_routines_description">查看自动任务、下次运行时间并立即运行</string>
+    <string name="widget_routines_preview">早间简报 · 今天 07:00</string>
+    <string name="widget_memory_label">记住这件事</string>
+    <string name="widget_memory_description">记录希望 OpenPhoneUse 记住的内容</string>
+    <string name="widget_memory_preview">记住这件事</string>
+    <string name="widget_actions_preview_1">静音 1 小时</string>
+    <string name="widget_actions_preview_2">回到桌面</string>
+    <string name="widget_actions_preview_3">通知</string>
+    <string name="widget_actions_preview_4">明天</string>
+    <string name="widget_actions_preview_5">闹钟 7:00</string>
+    <string name="widget_actions_preview_6">省电模式</string>
+    <string name="widget_live_preview_title">节省电量</string>
+    <string name="widget_live_preview_stop">停止</string>
+    <string name="widget_brief_preview_date">11 月 11 日，星期二 · 5 分钟前</string>
+    <string name="widget_brief_preview_source">AI 根据手机信息生成</string>
+    <string name="widget_brief_preview_more">更多</string>
+    <string name="widget_routines_preview_count">已启用 2 项</string>
+    <string name="widget_routines_preview_1_title">早间简报</string>
+    <string name="widget_routines_preview_1_when">今天 07:00 · 每天 07:00</string>
+    <string name="widget_routines_preview_2_title">准备休息</string>
+    <string name="widget_routines_preview_2_when">今天 23:00 · 每天 23:00</string>
+    <string name="widget_memory_preview_title">记忆</string>
+    <string name="widget_memory_preview_1">妈妈的生日：3 月 12 日</string>
+    <string name="widget_memory_preview_2">办公室：江南区</string>
+    <string name="widget_memory_preview_count">已保存 24 条</string>
+</resources>
