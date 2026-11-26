@@ -20,5 +20,9 @@ class ChineseTextTest {
         assertEquals("提醒我在 07:30 准备出发", ChineseText.translate("Remind me to get ready to leave at 07:30"))
         assertEquals("每隔 30 分钟", ChineseText.translate("Once every 30 min"))
         assertEquals("有地点的日程开始前 1 小时 15 分钟", ChineseText.translate("1 h 15 min before an event with a location"))
+        assertEquals("删除 3 条对话？", ChineseText.translate("Delete 3 chats?"))
+        assertEquals("新建自动流程", ChineseText.translate("New routine"))
+        assertEquals("点击开始说话", ChineseText.translate("Tap to speak"))
+        assertEquals("“Shopping”及其所有消息都将被删除。此操作无法撤销。", ChineseText.translate("“Shopping” and all its messages will be deleted. This can't be undone."))
     }
 }
