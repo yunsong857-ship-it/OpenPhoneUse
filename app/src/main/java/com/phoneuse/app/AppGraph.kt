@@ -15,6 +15,8 @@ import com.phoneuse.chat.SqliteConversationSearch
 import com.phoneuse.connectors.ConnectorStore
 import com.phoneuse.connectors.Connectors
 import com.phoneuse.files.AttachmentStore
+import com.phoneuse.i18n.AppLanguage
+import com.phoneuse.i18n.Lang
 import com.phoneuse.memory.SqliteMemoryStore
 import com.phoneuse.usage.UsageStore
 import com.phoneuse.ui.chat.ConversationDrafts
@@ -71,6 +73,10 @@ object AppGraph {
     fun init(context: Context) {
         val app = context.applicationContext
         settings = SettingsStore(app)
+        // Apply the saved app language before the first settings interaction.
+        scope.launch {
+            settings.appLanguage.catch { emit(AppLanguage.SYSTEM) }.collect { Lang.select(it) }
+        }
         // Runs at every start and does nothing once they are gone; a failure just tries again next start.
         scope.launch { runCatching { settings.dropRetiredSecrets() } }
         scope.launch { runCatching { settings.dropRetiredPrefs() } }
